@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Draw Polygon and Send to Backend</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        #controls {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Draw a Polygon and Send to Backend</h1>
+    <div id="map"></div>
+    <div id="controls">
+        <button id="sendPolygon" disabled>Send Polygon to Backend</button>
+        <p id="message" style="color: red;"></p>
+    </div>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([47.610610, -122.327937], 13); // Center on San Francisco
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Create a feature group to store drawn items
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        // Add the draw control to the map
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems // Allow editing of drawn items
+            },
+            draw: {
+                polygon: true, // Enable polygon drawing
+                rectangle: false, // Disable rectangle drawing
+                circle: false, // Disable circle drawing
+                marker: false, // Disable marker placement
+                polyline: false // Disable polyline drawing
+            }
+        });
+        map.addControl(drawControl);
+
+        // Handle the draw:created event
+        map.on('draw:created', function (e) {
+            var layer = e.layer; // Get the drawn layer
+
+            // Check if there is already a polygon
+            if (drawnItems.getLayers().length > 0) {
+                document.getElementById('message').innerText = "Only one polygon is allowed. Please delete the existing polygon first.";
+                return;
+            }
+
+            // Add the new polygon to the feature group
+            drawnItems.addLayer(layer);
+
+            // Enable the "Send Polygon" button
+            document.getElementById('sendPolygon').disabled = false;
+
+            // Clear any previous messages
+            document.getElementById('message').innerText = "";
+        });
+
+        // Handle the "Send Polygon" button click
+        document.getElementById('sendPolygon').addEventListener('click', function () {
+            // Ensure there is only one polygon
+            if (drawnItems.getLayers().length !== 1) {
+                document.getElementById('message').innerText = "Error: No polygon or multiple polygons detected.";
+                return;
+            }
+
+            // Get the GeoJSON of the polygon
+            var polygonGeoJSON = drawnItems.getLayers()[0].toGeoJSON();
+
+            console.log(polygonGeoJSON)
+
+            // Send the polygon to the backend
+            fetch('/estimate_parking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ polygon: polygonGeoJSON.geometry.coordinates[0] })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(`Estimated Parking Spaces: ${data.estimated_parking}`);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('message').innerText = "Failed to send polygon to backend.";
+            });
+        });
+    </script>
+</body>
+</html>

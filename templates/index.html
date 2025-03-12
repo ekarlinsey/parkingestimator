@@ -92,11 +92,22 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(`Estimated Parking Spaces: ${data.estimated_parking}`);
-            })
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+
+            // Add the roads to the map
+            var roadsLayer = L.geoJSON(data, {
+                style: {
+                    color: 'blue',
+                    weight: 2
+                }
+            }).addTo(map);
+        })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById('message').innerText = "Failed to send polygon to backend.";
+                //document.getElementById('message').innerText = "Failed to send polygon to backend.";
             });
         });
     </script>
